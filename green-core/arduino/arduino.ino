@@ -7,10 +7,20 @@
 #include <dht.h>
 
 dht DHT;
-#define DHT11_PIN 7
+#define DHT11_PIN 8
 
-int ledPin = 13;                // LED 
-int pirPin = 2;                 // PIR Out pin 
+int buzzerPin = 13;                // LED
+int pirPin = 10;                 // PIR Out pin
+int growlightPin = 9;           // Grow Light pin
+
+int EN_A = 7;      //Enable pin for first motor
+int IN1 = 6;       //control pin for first motor
+int IN2 = 5;       //control pin for first motor
+int IN3 = 4;        //control pin for second motor
+int IN4 = 3;        //control pin for second motor
+int EN_B = 2;      //Enable pin for second motor
+
+
 int pirStat = 0;                   // PIR status
 
 bool waterMotorState = false;
@@ -30,35 +40,80 @@ bool motionDetected = false;
 //int soilMoisture = 0;
 //float humidity = 0;
 
-
-void motionDetection(){
-  pirStat = digitalRead(pirPin); 
-  if(automated){
-    if (pirStat == HIGH) {            // if motion detected
-      motionDetected = true;
-      digitalWrite(ledPin, HIGH);  // turn LED ON
-      Serial.println("Motion Detected");
-    } 
-    else {
-      motionDetected = false;
-      digitalWrite(ledPin, LOW); // turn LED OFF if we have no motion
-    }
-  }  
+void growLight() {
+  if (lightState) {
+    digitalWrite(growlightPin, HIGH);
+  }
+  else {
+    digitalWrite(growlightPin, LOW);
+  }
 }
 
-TimedAction motionThread = TimedAction(100, motionDetection);
+TimedAction growLightThread = TimedAction(100, growLight);
 
-void humidityDetection(){
+
+void waterMotor() {
+  if (waterMotorState) {
+    Serial.println("Watering plants");
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(EN_A, 255);
+  }
+  else {
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(EN_A, 0);
+  }
+}
+
+TimedAction waterMotorThread = TimedAction(1000, waterMotor);
+
+void fertilizerMotor() {
+  if (fertilizerMotorState) {
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    analogWrite(EN_B, 255);
+  }
+  else {
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    analogWrite(EN_B, 0);
+  }
+}
+
+TimedAction fertilizerMotorThread = TimedAction(1000, fertilizerMotor);
+
+void motionDetection() {
+  pirStat = digitalRead(pirPin);
+  if (automated) {
+    if (pirStat == HIGH) {            // if motion detected
+      motionDetected = true;
+      digitalWrite(buzzerPin, HIGH);  // turn LED ON
+      Serial.println("Motion Detected");
+    }
+    else {
+      motionDetected = false;
+      digitalWrite(buzzerPin, LOW); // turn LED OFF if we have no motion
+    }
+  }
+  else{
+    digitalWrite(buzzerPin, LOW); // turn LED OFF if we have no motion
+  }
+}
+
+TimedAction motionThread = TimedAction(1000, motionDetection);
+
+void humidityDetection() {
   int chk = DHT.read11(DHT11_PIN);
-  
+
   humidity = DHT.humidity;
   temperature = DHT.temperature;
-  
-  Serial.print("Temperature = ");
-  Serial.println(temperature);
-  Serial.print("Humidity = ");
-  Serial.println(humidity);
-//  delay(1000);
+
+  //  Serial.print("Temperature = ");
+  //  Serial.println(temperature);
+  //  Serial.print("Humidity = ");
+  //  Serial.println(humidity);
+  //  delay(1000);
 }
 
 TimedAction humidityThread = TimedAction(1000, humidityDetection);
@@ -67,24 +122,33 @@ void setup() {
   // Initialize "debug" serial port
   Serial.begin(9600);
 
-  pinMode(ledPin, OUTPUT);     
+  pinMode(buzzerPin, OUTPUT);
   pinMode(pirPin, INPUT);
-  
+
+  pinMode(growlightPin, OUTPUT);
+
+  // Motors
+  pinMode(EN_A, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(EN_B, OUTPUT);
+
   while (!Serial) continue;
 
   Serial3.begin(9600);
   Serial2.begin(9600);
 }
 
-void getSensorData(){
+void getSensorData() {
   // water moisture
   // humidity
   // temperature
   // light intensity
   // motion detector
-//  motionDetection();
+  //  motionDetection();
 
-  if(motionDetected) Serial.println("Motion");
 
   soilMoisture = int(random(90, 100));
   lightIntensity = int(random(0, 1000));
@@ -94,28 +158,28 @@ void getSensorData(){
 
 TimedAction getSensorDataThread = TimedAction(100, getSensorData);
 
-void controlActuators(){
+void controlActuators() {
   // water plants
   // swich on grow lights
   // add fertilizer
-  
-  
+
+
   long timestamp = millis();
 
-  waterMotorState = (timestamp%2==0) ? true : false;
-  fertilizerMotorState = (timestamp%3==0) ? true : false;
-  lightState = (timestamp%5==0) ? true : false;
-  buzzerState = (timestamp%7==0) ? true : false;
+  waterMotorState = (timestamp % 2 == 0) ? true : false;
+  fertilizerMotorState = (timestamp % 3 == 0) ? true : false;
+  lightState = (timestamp % 5 == 0) ? true : false;
+  buzzerState = (timestamp % 7 == 0) ? true : false;
 }
 
-void sendData(){
-    
-//  long timestamp = millis();
-  
+void sendData() {
+
+  //  long timestamp = millis();
+
 
   // Print the values on the "debug" serial port
-//  Serial.print("timestamp = ");
-//  Serial.println(timestamp);
+  //  Serial.print("timestamp = ");
+  //  Serial.println(timestamp);
 
   Serial.println("Sending data to NodeMCU");
   Serial.print("Soil Moisture = ");
@@ -129,7 +193,7 @@ void sendData(){
 
   // Create the JSON document
   StaticJsonDocument<250> megadoc;
-//  megadoc["timestamp"] = timestamp;
+  //  megadoc["timestamp"] = timestamp;
   megadoc["soilMoisture"] = soilMoisture;
   megadoc["lightIntensity"] = lightIntensity;
   megadoc["humidity"] = humidity;
@@ -143,39 +207,39 @@ void sendData(){
   serializeJson(megadoc, Serial3);
 
   // Wait
-//  delay(3000);
+  //  delay(3000);
 }
 
 TimedAction sendDataThread = TimedAction(3000, sendData);
 
-void recieveData(){
+void recieveData() {
   // Check if the nodemuc is transmitting
-//  Serial.println("Checking serial data");
-  if (Serial2.available()){
+  //  Serial.println("Checking serial data");
+  if (Serial2.available()) {
 
-//    Serial.println("serial available");
+    //    Serial.println("serial available");
     // Allocate the JSON document
     // This one must be bigger than for the sender because it must store the strings
-    
+
     StaticJsonDocument<450> doc;
-//    StaticJsonDocument<350> doc;
+    //    StaticJsonDocument<350> doc;
 
     // Read the JSON document from the serial port
 
-//    Serial2.setTimeout(10000);
+    //    Serial2.setTimeout(10000);
 
     ReadLoggingStream loggingStream(Serial2, Serial);
     DeserializationError err = deserializeJson(doc, loggingStream);
 
-    if (err == DeserializationError::Ok){
+    if (err == DeserializationError::Ok) {
 
-//      Serial.println("No serial error");
-      
+      //      Serial.println("No serial error");
+
       waterMotorState = doc["waterMotor"].as<bool>();
       fertilizerMotorState = doc["fertilizerMotor"].as<bool>();
       lightState = doc["light"].as<bool>();
-//      automated = doc["automated"].as<bool>();
-      
+      //      automated = doc["automated"].as<bool>();
+
       // Print the values
       // (we must use as<T>() to resolve the ambiguity)
       Serial.println("Recieving data from NodeMCU");
@@ -185,19 +249,19 @@ void recieveData(){
       Serial.println(lightState);
       Serial.print("fertilizer motor = ");
       Serial.println(fertilizerMotorState);
-      
-    } 
-    else{
+
+    }
+    else {
       // Print error to the "debug" serial port
       Serial.print("deserializeJson() returned ");
       Serial.println(err.c_str());
-  
+
       // Flush all bytes in the "link" serial port buffer
       while (Serial2.available() > 0)
         Serial2.read();
     }
   }
-//  delay(3000);
+  //  delay(3000);
 }
 
 TimedAction recieveDataThread = TimedAction(3000, recieveData);
@@ -207,24 +271,27 @@ void loop() {
   motionThread.check();
   humidityThread.check();
   recieveDataThread.check();
-//  recieveData();
+  //  recieveData();
   getSensorDataThread.check();
-//  getSensorData();
-//  controlActuators();
+  //  getSensorData();
+  growLightThread.check();
+  waterMotorThread.check();
+  fertilizerMotorThread.check();
+  //  controlActuators();
   sendDataThread.check();
-//  sendData();
-  
-// 
-//    delay(3000);
-//
-    
-//
-    
-//
-//    sendData();
-//  }
-//  
-//  else{
-//   sendData();
-//  }
+  //  sendData();
+
+  //
+  //    delay(3000);
+  //
+
+  //
+
+  //
+  //    sendData();
+  //  }
+  //
+  //  else{
+  //   sendData();
+  //  }
 }
