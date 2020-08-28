@@ -9,7 +9,7 @@ SoftwareSerial s(12,14);  // 6-Rx , 5-Tx
 const char* ssid = "Dialog 4G";
 const char* password = "0GN80THE415";
 
-String moduleId = "id=5ec66db7aa16ff3a80870c9a";
+String moduleId = "5ec66db7aa16ff3a80870c9a";
 
 bool waterMotorActuator = false;
 bool lightActuator = false;
@@ -43,7 +43,7 @@ void recieveActuatorStatus(){
 
     HTTPClient http;  //Declare an object of class HTTPClient
 
-    String postData = moduleId;  // module id
+    String postData = "id=" + moduleId;  // module id
     
 //    http://192.168.8.104:3002
 //    https://gciobe.herokuapp.com
@@ -154,9 +154,10 @@ void sendSensorData(){
     Serial.println("Failed to connect to WiFi");
   }
 
-  delay(10000);    //Send a request every 30 seconds
+//  delay(10000);    //Send a request every 30 seconds
 }
 
+TimedAction sendSensorDataThread = TimedAction(10000, sendSensorData);
 
 void sendData(){
   
@@ -256,6 +257,7 @@ void loop() {
 //  recieveData();
   sendDataThread.check();
 //  sendData();
+  sendSensorDataThread.check();
 //  sendSensorData();
   
 }
