@@ -3,6 +3,11 @@
 #define ARDUINOJSON_ENABLE_COMMENTS 1
 #include <ArduinoJson.h>
 
+// light intensity sensor
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_TSL2561_U.h>
+
 #include <TimedAction.h>
 #include <dht.h>
 
@@ -27,11 +32,11 @@ bool waterMotorState = false;
 bool fertilizerMotorState = false;
 bool lightState = false;
 bool buzzerState = false;
-bool automated = true;
+bool automated = false;
 
 
 int soilMoisture = 0;
-int lightIntensity = 0;
+float lightIntensity = 0;
 float humidity = 0;
 float temperature = 0;
 bool motionDetected = false;
@@ -40,12 +45,88 @@ bool motionDetected = false;
 //int soilMoisture = 0;
 //float humidity = 0;
 
-void growLight() {
-  if (lightState) {
-    digitalWrite(growlightPin, HIGH);
+
+// soil moisture
+
+void soilMoistureSensor(){
+  soilMoisture = analogRead(A0);
+  Serial.print(soilMoisture);
+  Serial.print(" - ");
+  if(soilMoisture >= 1000){
+    Serial.println("Sensor is not in the Soil or DISCONNECTED");
   }
-  else {
-    digitalWrite(growlightPin, LOW);
+  if(soilMoisture < 1000 && soilMoisture >= 600){ 
+    Serial.println("Soil is DRY");
+  }
+
+  if(soilMoisture < 600 && soilMoisture >= 370){
+    Serial.println("Soil is HUMID"); 
+  }
+  
+  if(soilMoisture < 370){
+    Serial.println("Sensor in WATER");
+  }                                          
+
+}
+
+TimedAction soilMoistureThread = TimedAction(2000, soilMoistureSensor);
+
+
+
+// light intensity
+Adafruit_TSL2561_Unified tsl = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 12345);
+
+void configureLightSensor(void){
+  /* You can also manually set the gain or enable auto-gain support */
+  // tsl.setGain(TSL2561_GAIN_1X);      /* No gain ... use in bright light to avoid sensor saturation */
+  // tsl.setGain(TSL2561_GAIN_16X);     /* 16x gain ... use in low light to boost sensitivity */
+  tsl.enableAutoRange(true);            /* Auto-gain ... switches automatically between 1x and 16x */
+  
+  /* Changing the integration time gives you better sensor resolution (402ms = 16-bit data) */
+  tsl.setIntegrationTime(TSL2561_INTEGRATIONTIME_13MS);      /* fast but low resolution */
+  // tsl.setIntegrationTime(TSL2561_INTEGRATIONTIME_101MS);  /* medium resolution and speed   */
+  // tsl.setIntegrationTime(TSL2561_INTEGRATIONTIME_402MS);  /* 16-bit data but slowest conversions */
+
+  /* Update these values depending on what you've set above! */  
+  Serial.println("------------------------------------");
+  Serial.print  ("Gain:         "); Serial.println("Auto");
+  Serial.print  ("Timing:       "); Serial.println("13 ms");
+  Serial.println("------------------------------------");
+}
+
+
+void lightIntensitySensor(){
+  /* Get a new sensor event */ 
+  sensors_event_t event;
+  tsl.getEvent(&event);
+ 
+  /* Display the results (light is measured in lux) */
+  if (event.light){
+    lightIntensity = event.light;
+  }
+  else{
+    Serial.println("Light Sensor overload");
+  }
+}
+
+TimedAction lightIntensityThread = TimedAction(250, lightIntensitySensor);
+
+void growLight() {
+  if(automated){
+    if(lightIntensity < 70){
+      digitalWrite(growlightPin, HIGH);
+    }
+    else{
+      digitalWrite(growlightPin, LOW);
+    }
+  }
+  else{               // manual configuration
+    if(lightState){
+      digitalWrite(growlightPin, HIGH);
+    }
+    else{
+      digitalWrite(growlightPin, LOW);
+    }
   }
 }
 
@@ -53,16 +134,31 @@ TimedAction growLightThread = TimedAction(100, growLight);
 
 
 void waterMotor() {
-  if (waterMotorState) {
-    Serial.println("Watering plants");
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, HIGH);
-    analogWrite(EN_A, 255);
+  if(automated){
+    if(soilMoisture < 1000 && soilMoisture >= 600){
+      Serial.println("Watering plants");
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, HIGH);
+      analogWrite(EN_A, 255);
+    }
+    else{
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, HIGH);
+      analogWrite(EN_A, 0);
+    }
   }
-  else {
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, HIGH);
-    analogWrite(EN_A, 0);
+  else{
+    if (waterMotorState) {
+      Serial.println("Watering plants");
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, HIGH);
+      analogWrite(EN_A, 255);
+    }
+    else {
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, HIGH);
+      analogWrite(EN_A, 0);
+    }
   }
 }
 
@@ -106,8 +202,8 @@ TimedAction motionThread = TimedAction(1000, motionDetection);
 void humidityDetection() {
   int chk = DHT.read11(DHT11_PIN);
 
-  humidity = DHT.humidity;
-  temperature = DHT.temperature;
+  humidity = (DHT.humidity > 0) ? DHT.humidity : humidity; 
+  temperature = (DHT.temperature > 0) ? DHT.temperature : temperature;
 
   //  Serial.print("Temperature = ");
   //  Serial.println(temperature);
@@ -126,6 +222,12 @@ void setup() {
   pinMode(pirPin, INPUT);
 
   pinMode(growlightPin, OUTPUT);
+
+  // soil moisture
+  pinMode(A1, INPUT);
+
+  // light intensity
+  if(tsl.begin()) configureLightSensor();
 
   // Motors
   pinMode(EN_A, OUTPUT);
@@ -150,10 +252,10 @@ void getSensorData() {
   //  motionDetection();
 
 
-  soilMoisture = int(random(90, 100));
-  lightIntensity = int(random(0, 1000));
-  humidity = int(random(10, 90));
-  temperature = int(random(10, 50));
+//  soilMoisture = int(random(90, 100));
+//  lightIntensity = int(random(0, 1000));
+//  humidity = int(random(10, 90));
+//  temperature = int(random(10, 50));
 }
 
 TimedAction getSensorDataThread = TimedAction(100, getSensorData);
@@ -268,11 +370,13 @@ TimedAction recieveDataThread = TimedAction(3000, recieveData);
 
 void loop() {
 
+  soilMoistureThread.check();
+  lightIntensityThread.check();
   motionThread.check();
   humidityThread.check();
   recieveDataThread.check();
   //  recieveData();
-  getSensorDataThread.check();
+//  getSensorDataThread.check();
   //  getSensorData();
   growLightThread.check();
   waterMotorThread.check();
@@ -281,17 +385,4 @@ void loop() {
   sendDataThread.check();
   //  sendData();
 
-  //
-  //    delay(3000);
-  //
-
-  //
-
-  //
-  //    sendData();
-  //  }
-  //
-  //  else{
-  //   sendData();
-  //  }
 }
