@@ -11,16 +11,20 @@ const char* password = "0GN80THE415";
 
 String moduleId = "5ec66db7aa16ff3a80870c9a";
 
+String url = "http://192.168.8.102:3002/";
+//    https://gciobe.herokuapp.com
+//    http://192.168.8.104:3002
+
 bool waterMotorActuator = false;
 bool lightActuator = false;
 bool buzzerActuator = false;
 bool fertilizerActuator = false;
-bool automated = true;
+bool automated = false;
 
-String soilMoistureReading;
-String humidityReading;
-String temperatureReading;
-String lightIntensityReading;
+String soilMoistureReading = "0";
+String humidityReading = "0";
+String temperatureReading = "0";
+String lightIntensityReading = "0";
 
 void setup() {
   Serial.begin(9600);
@@ -45,10 +49,9 @@ void recieveActuatorStatus(){
 
     String postData = "id=" + moduleId;  // module id
     
-//    http://192.168.8.104:3002
-//    https://gciobe.herokuapp.com
 
-    http.begin("http://192.168.8.104:3002/units/get-actuator-status");  //get actuator status - wether the actuators should be activated or not
+    String api = url + "units/get-actuator-status";
+    http.begin(api);  //get actuator status - wether the actuators should be activated or not
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");    //Specify content-type header
 
     http.useHTTP10(true);
@@ -64,10 +67,11 @@ void recieveActuatorStatus(){
          Serial.println(error.c_str()); // print the error
       }
       else{
-        waterMotorActuator = doc["waterMotorActuator"].as<bool>();
-        lightActuator = doc["lightActuator"].as<bool>();
-        buzzerActuator = doc["buzzerActuator"].as<bool>();
-        fertilizerActuator = doc["fertilizerActuator"].as<bool>();
+        waterMotorActuator = doc["waterMotorA"].as<bool>();
+        lightActuator = doc["lightA"].as<bool>();
+        buzzerActuator = doc["buzzerA"].as<bool>();
+        fertilizerActuator = doc["fertilizerA"].as<bool>();
+        automated = doc["automated"].as<bool>();
         // Output to serial monitor
         Serial.print("waterMotorActuator:");
         Serial.println(waterMotorActuator);
@@ -75,8 +79,10 @@ void recieveActuatorStatus(){
         Serial.println(lightActuator);
         Serial.print("buzzerActuator:");
         Serial.println(buzzerActuator);
-        Serial.println("fertilizerActuator:");
+        Serial.print("fertilizerActuator:");
         Serial.println(fertilizerActuator);
+        Serial.print("Automated:");
+        Serial.println(automated);
 
 //        if (lightActuator /* && lightIntensity // less than certain value*/) {
 //          Serial.println("Switchin on Lights");
@@ -121,15 +127,18 @@ void sendSensorData(){
 
     HTTPClient http;  //Declare an object of class HTTPClient
 
-    String soilMoisture = soilMoistureReading ? soilMoistureReading : "";
-    String humidity = humidityReading ? humidityReading : "";
-    String temperature = temperatureReading ? temperatureReading : "";
-    String lightIntensity = lightIntensityReading ? lightIntensityReading : "";
+    String soilMoisture = soilMoistureReading ? soilMoistureReading : "0";
+    String humidity = humidityReading ? humidityReading : "0";
+    String temperature = temperatureReading ? temperatureReading : "0";
+    String lightIntensity = lightIntensityReading ? lightIntensityReading : "0";
 
     String postData = "moduleID=" + moduleId + "&soilMoisture=" + soilMoisture +  "&humidity=" + humidity + "&temperature=" + temperature + "&lightIntensity=" + lightIntensity;
 //    String postData = "moduleID=5ec66db7aa16ff3a80870c9a&soilMoisture=70.00&humidity=30%&temperature=37C&lightIntensity=200lux";
     Serial.println(postData);
-    http.begin("http://192.168.8.104:3002/units/update-data");  //get actuator status - wether the actuators should be activated or not
+
+    String api = url + "units/update-data";
+    
+    http.begin(api);  //get actuator status - wether the actuators should be activated or not
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");    //Specify content-type header
     int httpCode = http.POST(postData);       //Send the request
 
@@ -163,10 +172,10 @@ void sendData(){
   
     StaticJsonDocument<300> nodedoc;
         
-    nodedoc["waterMotor"] = waterMotorActuator;
-    nodedoc["fertilizerMotor"] = fertilizerActuator;
+    nodedoc["water"] = waterMotorActuator;
+    nodedoc["ferti"] = fertilizerActuator;
     nodedoc["light"] = lightActuator;
-//    nodedoc["automated"] = automated;
+    nodedoc["auto"] = automated;
     
 //    Serial.println("NodeMCU Sending Data");
 //    Serial.print("water state: ");
@@ -199,16 +208,16 @@ void recieveData(){
     if (err == DeserializationError::Ok){
 
 
-      soilMoistureReading = doc["soilMoisture"].as<String>();
-      humidityReading = doc["humidity"].as<String>();
-      temperatureReading = doc["temperature"].as<String>();
-      lightIntensityReading = doc["lightIntensity"].as<String>();
+      soilMoistureReading = (doc["soil"].as<String>()) ? doc["soil"].as<String>() : "0";
+      humidityReading = (doc["humid"].as<String>()) ? doc["humid"].as<String>() : "0";
+      temperatureReading = (doc["temp"].as<String>()) ? doc["temp"].as<String>() : "0";
+      lightIntensityReading = (doc["light"].as<String>()) ? doc["light"].as<String>() : "0";
 
       
-//      waterMotorActuator = doc["waterMotor"].as<bool>();
+//      waterMotorActuator = doc["water"].as<bool>();
 //      lightActuator = doc["light"].as<bool>();
 //      buzzerActuator = doc["buzzer"].as<bool>();
-//      fertilizerActuator = doc["fertilizerMotor"].as<bool>();
+//      fertilizerActuator = doc["ferti"].as<bool>();
 
       
       // Print the values

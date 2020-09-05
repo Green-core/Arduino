@@ -202,8 +202,8 @@ TimedAction motionThread = TimedAction(1000, motionDetection);
 void humidityDetection() {
   int chk = DHT.read11(DHT11_PIN);
 
-  humidity = (DHT.humidity > 0) ? DHT.humidity : humidity; 
-  temperature = (DHT.temperature > 0) ? DHT.temperature : temperature;
+  humidity = (DHT.humidity > 0) ? DHT.humidity : 0; 
+  temperature = (DHT.temperature > 0) ? DHT.temperature : 0;
 
   //  Serial.print("Temperature = ");
   //  Serial.println(temperature);
@@ -212,7 +212,7 @@ void humidityDetection() {
   //  delay(1000);
 }
 
-TimedAction humidityThread = TimedAction(1000, humidityDetection);
+TimedAction humidityThread = TimedAction(10000, humidityDetection);
 
 void setup() {
   // Initialize "debug" serial port
@@ -266,12 +266,12 @@ void controlActuators() {
   // add fertilizer
 
 
-  long timestamp = millis();
-
-  waterMotorState = (timestamp % 2 == 0) ? true : false;
-  fertilizerMotorState = (timestamp % 3 == 0) ? true : false;
-  lightState = (timestamp % 5 == 0) ? true : false;
-  buzzerState = (timestamp % 7 == 0) ? true : false;
+//  long timestamp = millis();
+//
+//  waterMotorState = (timestamp % 2 == 0) ? true : false;
+//  fertilizerMotorState = (timestamp % 3 == 0) ? true : false;
+//  lightState = (timestamp % 5 == 0) ? true : false;
+//  buzzerState = (timestamp % 7 == 0) ? true : false;
 }
 
 void sendData() {
@@ -296,14 +296,14 @@ void sendData() {
   // Create the JSON document
   StaticJsonDocument<250> megadoc;
   //  megadoc["timestamp"] = timestamp;
-  megadoc["soilMoisture"] = soilMoisture;
-  megadoc["lightIntensity"] = lightIntensity;
-  megadoc["humidity"] = humidity;
-  megadoc["temperature"] = temperature;
-  megadoc["waterMotor"] = waterMotorState;
-  megadoc["fertilizerMotor"] = fertilizerMotorState;
-  megadoc["light"] = lightState;
-  megadoc["buzzer"] = buzzerState;
+  megadoc["soil"] = soilMoisture;
+  megadoc["light"] = lightIntensity;
+  megadoc["humid"] = humidity;
+  megadoc["temp"] = temperature;
+//  megadoc["water"] = waterMotorState;
+//  megadoc["ferti"] = fertilizerMotorState;
+//  megadoc["light"] = lightState;
+//  megadoc["buzzer"] = buzzerState;
 
   // Send the JSON document over the "link" serial port
   serializeJson(megadoc, Serial3);
@@ -337,10 +337,10 @@ void recieveData() {
 
       //      Serial.println("No serial error");
 
-      waterMotorState = doc["waterMotor"].as<bool>();
-      fertilizerMotorState = doc["fertilizerMotor"].as<bool>();
+      waterMotorState = doc["water"].as<bool>();
+      fertilizerMotorState = doc["ferti"].as<bool>();
       lightState = doc["light"].as<bool>();
-      //      automated = doc["automated"].as<bool>();
+      automated = doc["auto"].as<bool>();
 
       // Print the values
       // (we must use as<T>() to resolve the ambiguity)
@@ -351,6 +351,8 @@ void recieveData() {
       Serial.println(lightState);
       Serial.print("fertilizer motor = ");
       Serial.println(fertilizerMotorState);
+      Serial.print("Automated = ");
+      Serial.println(automated);
 
     }
     else {
