@@ -8,10 +8,12 @@ SoftwareSerial s(12,14);  // 6-Rx , 5-Tx
 
 const char* ssid = "Dialog 4G";
 const char* password = "0GN80THE415";
+//const char* ssid = "Huawei Nova 5T";
+//const char* password = "87654321";
 
 String moduleId = "5ec66db7aa16ff3a80870c9a";
 
-String url = "http://192.168.8.102:3002/";
+String url = "http://192.168.8.101:3002/";
 //    https://gciobe.herokuapp.com
 //    http://192.168.8.104:3002
 

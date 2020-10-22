@@ -55,18 +55,15 @@ void soilMoistureSensor(){
   if(soilMoisture >= 1000){
     Serial.println("Sensor is not in the Soil or DISCONNECTED");
   }
-  if(soilMoisture < 1000 && soilMoisture >= 600){ 
+  else if(soilMoisture >= 600){ 
     Serial.println("Soil is DRY");
   }
-
-  if(soilMoisture < 600 && soilMoisture >= 370){
+  else if(soilMoisture >= 370){
     Serial.println("Soil is HUMID"); 
   }
-  
-  if(soilMoisture < 370){
+  else{
     Serial.println("Sensor in WATER");
-  }                                          
-
+  }                                       
 }
 
 TimedAction soilMoistureThread = TimedAction(2000, soilMoistureSensor);
@@ -109,7 +106,7 @@ void lightIntensitySensor(){
   }
 }
 
-TimedAction lightIntensityThread = TimedAction(250, lightIntensitySensor);
+TimedAction lightIntensityThread = TimedAction(1000, lightIntensitySensor);
 
 void growLight() {
   if(automated){
@@ -130,7 +127,7 @@ void growLight() {
   }
 }
 
-TimedAction growLightThread = TimedAction(100, growLight);
+TimedAction growLightThread = TimedAction(1000, growLight);
 
 
 void waterMotor() {
@@ -296,7 +293,7 @@ void sendData() {
   // Create the JSON document
   StaticJsonDocument<250> megadoc;
   //  megadoc["timestamp"] = timestamp;
-  megadoc["soil"] = soilMoisture;
+  megadoc["soil"] = soilMoisture/10;
   megadoc["light"] = lightIntensity;
   megadoc["humid"] = humidity;
   megadoc["temp"] = temperature;
